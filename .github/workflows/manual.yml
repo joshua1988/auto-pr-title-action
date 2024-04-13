@@ -24,93 +24,61 @@ on:
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
   # This workflow contains a single job called "greet"
-  greet:
-    # The type of runner that the job will run on
+  update_pr_title:
     runs-on: ubuntu-latest
-
-    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
-
-      - name: Install Node.js
+      
+      - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '14'
-
+          node-version: '16'
+      
       - name: Update PR Title
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          const https = require('https');
+          const fetch = require('node-fetch');
+          const core = require('@actions/core');
+          const github = require('@actions/github');
 
-          const githubToken = process.env.GITHUB_TOKEN;
-          const prNumber = process.env.GITHUB_EVENT_NUMBER;
-          const repo = process.env.GITHUB_REPOSITORY;
+          async function updateTitle() {
+            try {
+              const { context } = github;
+              const pr_number = context.payload.pull_request.number;
+              const base_branch = context.payload.pull_request.base.ref;
 
-          const options = {
-            hostname: 'api.github.com',
-            path: `/repos/${repo}/pulls/${prNumber}`,
-            method: 'GET',
-            headers: {
-              'Authorization': `token ${githubToken}`,
-              'Accept': 'application/vnd.github.v3+json',
-              'User-Agent': 'GitHub Actions'
-            }
-          };
+              if (base_branch.startsWith('dev/')) {
+                const branch_code = base_branch.split('/').pop();
+                const original_title = context.payload.pull_request.title;
+                const new_title = `[${branch_code}] ${original_title}`;
 
-          const req = https.request(options, (res) => {
-            let data = '';
-
-            res.on('data', (chunk) => {
-              data += chunk;
-            });
-
-            res.on('end', () => {
-              const prData = JSON.parse(data);
-              const baseBranch = prData.base.ref;
-
-              if (baseBranch.startsWith("dev/")) {
-                const branchCode = baseBranch.split('/')[1];
-                const originalTitle = prData.title;
-                const newTitle = `[${branchCode}] ${originalTitle}`;
-
-                if (originalTitle !== newTitle) {
-                  const updateOptions = {
-                    hostname: 'api.github.com',
-                    path: `/repos/${repo}/pulls/${prNumber}`,
+                if (original_title !== new_title) {
+                  const url = `https://api.github.com/repos/${context.repo.owner}/${context.repo.repo}/pulls/${pr_number}`;
+                  const response = await fetch(url, {
                     method: 'PATCH',
                     headers: {
-                      'Authorization': `token ${githubToken}`,
-                      'Accept': 'application/vnd.github.v3+json',
-                      'User-Agent': 'GitHub Actions',
-                      'Content-Type': 'application/json'
-                    }
-                  };
-
-                  const updateReq = https.request(updateOptions, (updateRes) => {
-                    console.log(`Status code: ${updateRes.statusCode}`);
+                      Authorization: `token ${process.env.GITHUB_TOKEN}`,
+                      Accept: 'application/vnd.github.v3+json'
+                    },
+                    body: JSON.stringify({ title: new_title })
                   });
 
-                  updateReq.on('error', (error) => {
-                    console.error(error);
-                  });
+                  if (!response.ok) {
+                    throw new Error(`Failed to update PR title: ${response.statusText}`);
+                  }
 
-                  const updateData = JSON.stringify({
-                    title: newTitle
-                  });
-
-                  updateReq.write(updateData);
-                  updateReq.end();
+                  console.log(`PR title updated to "${new_title}"`);
+                } else {
+                  console.log('No update needed');
                 }
               } else {
-                console.log("No update needed, base branch does not start with 'dev/'");
+                console.log('Base branch does not start with "dev/", no update needed');
               }
-            });
-          });
+            } catch (error) {
+              core.setFailed(`An error occurred: ${error.message}`);
+            }
+          }
 
-          req.on('error', (error) => {
-            console.error(error);
-          });
-
-          req.end();
+          updateTitle();
