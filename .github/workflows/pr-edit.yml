@@ -6,17 +6,21 @@ on:
 
 jobs:
   update_pr_title:
+    # PR 제목 데이터를 변경하기 위해 아래 옵션 꼭 추가
     permissions: write-all
     runs-on: ubuntu-latest
     steps:
+      # 리포의 코드 체크아웃 - 워크플로우 폴더의 JS 파일 참고하기 위함
       - name: Checkout code
         uses: actions/checkout@v3
 
+      # 자바스크립트 실행을 위한 노드 설치
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '16'
       
+      # 깃헙 액션 스크립트 사용 및 스크립트 실행
       - name: Add labels based on PR title
         uses: actions/github-script@v6
         with:
