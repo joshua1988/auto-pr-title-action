@@ -1,6 +1,6 @@
 # This is a basic workflow that is manually triggered
 
-name: Manual workflow
+name: Auto PR Title Edit
 
 # Controls when the action will run. Workflow runs when manually triggered using the UI
 # or API.
@@ -27,6 +27,87 @@ jobs:
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-    # Runs a single command using the runners shell
-    - name: Send greeting
-      run: echo "Hello ${{ inputs.name }}"
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Install Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '14'
+
+      - name: Update PR Title
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          const https = require('https');
+
+          const githubToken = process.env.GITHUB_TOKEN;
+          const prNumber = process.env.GITHUB_EVENT_NUMBER;
+          const repo = process.env.GITHUB_REPOSITORY;
+
+          const options = {
+            hostname: 'api.github.com',
+            path: `/repos/${repo}/pulls/${prNumber}`,
+            method: 'GET',
+            headers: {
+              'Authorization': `token ${githubToken}`,
+              'Accept': 'application/vnd.github.v3+json',
+              'User-Agent': 'GitHub Actions'
+            }
+          };
+
+          const req = https.request(options, (res) => {
+            let data = '';
+
+            res.on('data', (chunk) => {
+              data += chunk;
+            });
+
+            res.on('end', () => {
+              const prData = JSON.parse(data);
+              const baseBranch = prData.base.ref;
+
+              if (baseBranch.startsWith("dev/")) {
+                const branchCode = baseBranch.split('/')[1];
+                const originalTitle = prData.title;
+                const newTitle = `[${branchCode}] ${originalTitle}`;
+
+                if (originalTitle !== newTitle) {
+                  const updateOptions = {
+                    hostname: 'api.github.com',
+                    path: `/repos/${repo}/pulls/${prNumber}`,
+                    method: 'PATCH',
+                    headers: {
+                      'Authorization': `token ${githubToken}`,
+                      'Accept': 'application/vnd.github.v3+json',
+                      'User-Agent': 'GitHub Actions',
+                      'Content-Type': 'application/json'
+                    }
+                  };
+
+                  const updateReq = https.request(updateOptions, (updateRes) => {
+                    console.log(`Status code: ${updateRes.statusCode}`);
+                  });
+
+                  updateReq.on('error', (error) => {
+                    console.error(error);
+                  });
+
+                  const updateData = JSON.stringify({
+                    title: newTitle
+                  });
+
+                  updateReq.write(updateData);
+                  updateReq.end();
+                }
+              } else {
+                console.log("No update needed, base branch does not start with 'dev/'");
+              }
+            });
+          });
+
+          req.on('error', (error) => {
+            console.error(error);
+          });
+
+          req.end();
