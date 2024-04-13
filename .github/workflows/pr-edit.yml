@@ -17,7 +17,6 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             async function updatePRTitle() {
-              const octokit = github.getOctokit(process.env.GITHUB_TOKEN);
               const { context } = github;
               
               const pr_number = context.payload.pull_request.number;
@@ -29,7 +28,7 @@ jobs:
                 const new_title = `[${branch_code}] ${original_title}`;
 
                 if (original_title !== new_title) {
-                  const { data } = await octokit.rest.pulls.update({
+                  const { data } = await github.rest.pulls.update({
                     owner: context.repo.owner,
                     repo: context.repo.repo,
                     pull_number: pr_number,
