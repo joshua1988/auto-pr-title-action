@@ -5,6 +5,9 @@ name: Auto PR Title Edit
 # Controls when the action will run. Workflow runs when manually triggered using the UI
 # or API.
 on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+    
   workflow_dispatch:
     # Inputs the workflow accepts.
     inputs:
