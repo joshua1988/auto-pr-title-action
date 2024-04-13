@@ -1,4 +1,4 @@
-name: 'Automate PR Title'
+name: Update PR Title
 
 on:
   pull_request:
@@ -10,61 +10,19 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
-      
+
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '16'
+          cache: 'npm'
 
       - name: Install dependencies
-        run: npm install node-fetch dotenv
+        run: npm install
 
       - name: Execute script
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          const fetch = require('node-fetch');
-
-          async function updatePRTitle() {
-            const prDetailsUrl = `https://api.github.com/repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}`;
-            const response = await fetch(prDetailsUrl, {
-              method: 'GET',
-              headers: {
-                Authorization: `token ${process.env.GITHUB_TOKEN}`,
-                Accept: 'application/vnd.github.v3+json'
-              }
-            });
-
-            const pr = await response.json();
-
-            const baseBranch = pr.base.ref;
-            if (baseBranch.startsWith('dev/')) {
-              const branchCode = baseBranch.split('/').pop();
-              const originalTitle = pr.title;
-              const newTitle = `[${branchCode}] ${originalTitle}`;
-
-              if (originalTitle !== newTitle) {
-                const updateResponse = await fetch(prDetailsUrl, {
-                  method: 'PATCH',
-                  headers: {
-                    Authorization: `token ${process.env.GITHUB_TOKEN}`,
-                    'Content-Type': 'application/json',
-                    Accept: 'application/vnd.github.v3+json'
-                  },
-                  body: JSON.stringify({ title: newTitle })
-                });
-
-                if (!updateResponse.ok) {
-                  throw new Error(`Failed to update PR title: ${await updateResponse.text()}`);
-                }
-
-                console.log(`PR title updated to "${newTitle}"`);
-              } else {
-                console.log('No update needed, title is already up to date');
-              }
-            } else {
-              console.log('Base branch does not start with "dev/", no update needed');
-            }
-          }
-
-          updatePRTitle();
+        uses: actions/github-script@v4
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            return require('./.github/workflows/pr-edit.mjs');
