@@ -1,9 +1,9 @@
 module.exports = async ({github, context}) => {
   const pr_number = context.payload.pull_request.number;
-  const base_branch = context.payload.pull_request.base.ref;
+  const source_branch = context.payload.pull_request.head.ref;
   
-  if (base_branch.startsWith('dev/')) {
-    const branch_code = base_branch.split('/').pop();
+  if (source_branch.startsWith('dev/')) {
+    const branch_code = source_branch.split('/').pop();
     const original_title = context.payload.pull_request.title;
     const new_title = `[${branch_code}] ${original_title}`;
 
