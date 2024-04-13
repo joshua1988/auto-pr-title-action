@@ -20,9 +20,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          const github = require('@actions/github');
-          const core = require('@actions/core');
-
           async function updatePRTitle() {
             const octokit = github.getOctokit(process.env.GITHUB_TOKEN);
             const { context } = github;
@@ -52,4 +49,4 @@ jobs:
             }
           }
 
-          updatePRTitle().catch(error => core.setFailed(error.message));
+          updatePRTitle().catch(error => console.log(error));
